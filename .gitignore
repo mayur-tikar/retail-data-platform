@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
+
+# Airflow
+airflow/logs
+
+# Data files (too large for git)
+data/
+*.csv
+*.parquet
+*.jsonl
+
+# Docker volumes
+docker/localstack/
+docket/postgres/data/

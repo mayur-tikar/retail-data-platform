@@ -1,0 +1,174 @@
+
+services:
+  
+  # ─────────────────────────────────────────────
+  # LOCALSTACK — emulates AWS services locally
+  # Free. Runs S3, Glue, Lambda, IAM inside a container.
+  # Your boto3/PySpark code talks to this exactly like real AWS.
+  # The trick: AWS_ENDPOINT_URL=http://localstack:4566
+  # tells the AWS SDK to hit this container instead of real AWS.
+  # ─────────────────────────────────────────────
+
+  localstack:
+    image: localstack/localstack:3.0
+    container_name: retail_localstack
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=s3,glue,lambda,sts
+      - DEBUG=0
+      - DEFAULT_REGION=us-east-1
+      - PERSISTENT=1
+    volumes:
+      - localstack_data:/var/lib/localstack
+      - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test: ["CMD", "curl", "f", "http://localhost:4566/_localhost/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+    networks:
+      - retail_net
+
+  # ─────────────────────────────────────────────
+  # POSTGRES — serves TWO purposes:
+  # 1. Airflow metadata DB (tracks DAG runs, task state)
+  # 2. Substitute for Redshift (Redshift is built on Postgres, 
+  #    same SQL syntax, same COPY-like behavior with \COPY)
+  # In production this would be two separate services.
+  # For free local dev, one Postgres with two databases is fine.
+  # ─────────────────────────────────────────────
+
+  postgres:
+    image: postgres:15
+    container_name: retail_postgres
+    environment: 
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "admin", "-d", "airflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - retail_net
+
+  # ─────────────────────────────────────────────
+  # AIRFLOW INIT — runs once, sets up DB + admin user
+  # ─────────────────────────────────────────────
+
+  airflow-init:
+    image: apache/airflow:2.8.1
+    container_name: retail_airflow_init
+    depends_on:
+      - postgres
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://admin:admin@postgres/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AWS_ENDPOINT_URL: http://localstack:4566
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_DEFAULT_REGION: us-east-1
+    command: bash -c "airflow db migrate && airflow users create --username admin --password admin 
+              --firstname Admin --lastname User --role Admin --email admin@example.com || true"
+    networks:
+      - retail_net
+  
+  # ─────────────────────────────────────────────
+  # AIRFLOW WEBSERVER — tUI at http://localhost:8080
+  # login: admin / admin
+  # ─────────────────────────────────────────────
+
+  airflow-webserver:
+    image: apache/airflow:2.8.1
+    container_name: retail_airflow_web
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://admin:admin@postgres/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AWS_ENDPOINT_URL: http://localhost:4566
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_DEFAULT_REGION: us-east-1
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs
+    ports:
+      - "8080:8080"
+    command: airflow webserver
+    networks:
+      - retail_net
+  
+  # ─────────────────────────────────────────────
+  # AIRFLOW SCHEDULER
+  # ─────────────────────────────────────────────
+
+  airflow-scheduler:
+    image: apache/airflow:2.8.1
+    container_name: retail_airflow_scheduler
+    depends_on:
+      - airflow-init
+      - postgres
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://admin:admin@postgres/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AWS_ENDPOINT_URL: http://localstack:4566
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_DEFAULT_REGION: us-east-1
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs
+    command: airflow scheduler
+    networks:
+      - retail_net
+  
+  # ─────────────────────────────────────────────
+  # GLUE / PYSPARK — AWS's official Glue image
+  # Your ETL scripts run here — same runtime as real AWS Glue
+  # You exec into this container to run and test your PySpark jobs
+  # ─────────────────────────────────────────────
+
+  glue:
+    image: amazon/aws-glue-libs:glue_libs_4.0.0_image_01
+    container_name: retail_glue
+    depends_on:
+      - localstack
+      - postgres
+    environment:
+      AWS_ENDPOINT_URL: http://localstack:4566
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_DEFAULT_REGION: us-east-1
+      DISABLE_SSL: "true"
+    volumes:
+      - ./glue_jobs:/home/glue_user/workspace/glue_jobs
+      - ./tests:/home/glue_user/workspace/tests
+      - ./ingestion:/home/glue_user/workspace/ingestion
+    tty: true
+    stdin_open: true
+    networks:
+      - retail_net
+  
+
+networks:
+  retail_net:
+    driver: bridge
+
+volumes:
+  localstack_data:
+  postgres_data:
+
