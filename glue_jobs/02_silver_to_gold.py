@@ -94,7 +94,7 @@ def build_dim_date(spark):
         df
         .withColumn("date_key", F.date_format("full_date", "yyyyMMdd").cast(IntegerType()))
         .withColumn("year", F.year("full_date"))
-        .withColumn("quater", F.quarter("full_date"))
+        .withColumn("quarter", F.quarter("full_date"))
         .withColumn("month", F.month("full_date"))
         .withColumn("month_name", F.date_format("full_date", "MMMM"))
         .withColumn("week", F.weekofyear("full_date"))
