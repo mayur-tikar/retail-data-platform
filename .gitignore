@@ -1,24 +1,27 @@
 # Python
+.venv/
 __pycache__/
 *.pyc
 *.pyo
-.env
+*.egg-info/
 
-# Terraform
-.terraform/
-*.tfstate
-*.tfstate.backup
-*.tfvars
-
-# Airflow
-airflow/logs
-
-# Data files (too large for git)
+# Data files (large, not for git)
 data/
-*.csv
-*.parquet
-*.jsonl
 
-# Docker volumes
-docker/localstack/
-docket/postgres/data/
+# Spark temp
+spark-warehouse/
+derby.log
+metastore_db/
+
+# OS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+
+# pytest
+.pytest_cache/
+
+# Airflow logs (runtime output, not source)
+airflow/logs/

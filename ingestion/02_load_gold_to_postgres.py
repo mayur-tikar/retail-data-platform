@@ -18,7 +18,7 @@ import pyarrow.parquet as pq
 # CONFIG
 # ─────────────────────────────────────────────
 
-GOLD_DIR = "/home/glue_user/workspace/data/gold"
+GOLD_DIR = os.getenv("GOLD_DIR", "/opt/airflow/data/gold")
 
 DB_CONFIG = {
     "host": "postgres",
@@ -162,6 +162,32 @@ def get_min_rows(table_name):
 
     return mins.get(table_name, 1)
 
+def ensure_schema(conn):
+    schema_path = os.path.join(
+        os.path.dirname(__file__),
+        ".//redshift/01_schema.sql"
+    )
+    # Fallback path when running from Airflow
+    if not os.path.exists(schema_path):
+        schema_path = "/opt/airflow/redshift/01_schema.sql"
+
+    cur = conn.cursor()
+    with open(schema_path, "r") as f:
+        sql = f.read()
+    
+    # Execute statement by statement
+    for statement in sql.split(";"):
+        statement = statement.strip()
+        if statement:
+            try:
+                cur.execute(statement)
+                conn.commit()
+            except Exception:
+                conn.rollback()  # clear failed transaction block before next statement
+    
+    cur.close()
+    print(" Schema ensured.")
+
 
 if __name__ == "__main__":
     print("-" * 55)
@@ -169,6 +195,7 @@ if __name__ == "__main__":
     print("=" * 55)
 
     conn = get_conn()
+    ensure_schema(conn)
 
     for table in TABLES:
         print(f"\n {table}")

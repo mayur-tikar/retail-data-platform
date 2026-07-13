@@ -18,8 +18,26 @@ ENDPOINT_URL = os.getenv("AWS_ENDPOINT_URL")
 RAW_BUCKET = "retail-raw"
 SILVER_BUCKET = "retail-silver"
 RAW_PREFIX = "olist"
-LOCAL_DATA_DIR = "/home/glue_user/workspace/data/raw"
-LOCAL_SILVER_DIR = "/home/glue_user/workspace/data/silver"
+LOCAL_DATA_DIR = os.getenv("DATA_DIR", "/opt/airflow/data/raw")
+LOCAL_SILVER_DIR = os.getenv("SILVER_DIR", "/opt/airflow/data/silver")
+LOCALSTACK_URL = "http://localstack:4566"
+
+def ensure_buckets():
+    """Create buckets if they don't exist - idempotent, safe to run every time."""
+    s3 = boto3.client(
+        "s3",
+        endpoint_url = LOCALSTACK_URL,
+        aws_access_key_id = "test",
+        aws_secret_access_key = "test",
+        region_name = "us-east-1",
+    )
+
+    for bucket in ["retail-raw", "retail-silver", "retail-gold", "retail-scripts"]:
+        try:
+            s3.head_bucket(Bucket=bucket)
+        except Exception:
+            s3.create_bucket(Bucket=bucket)
+            print(f"    Create bucket:  {bucket}")
 
 def get_spark():
     """
@@ -344,6 +362,8 @@ if __name__ == "__main__":
     print(" Source: s3://retail-raw/olist/")
     print(" Target: s3://retail-silver/")
     print("=" * 55)
+
+    ensure_buckets()
 
     spark = get_spark()
     spark.sparkContext.setLogLevel("WARN")

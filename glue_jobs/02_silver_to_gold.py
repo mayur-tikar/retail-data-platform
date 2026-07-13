@@ -8,8 +8,8 @@ from pyspark.sql.types import IntegerType, DoubleType
 # CONFIG
 # ─────────────────────────────────────────────────────────────
 
-SILVER_DIR = "/home/glue_user/workspace/data/silver"
-GOLD_DIR = "/home/glue_user/workspace/data/gold"
+SILVER_DIR = os.getenv("SILVER_DIR", "/opt/airflow/data/silver")
+GOLD_DIR = os.getenv("GOLD_DIR", "/opt/airflow/data/gold")
 GOLD_BUCKET = "retail-gold"
 LOCALSTACK_URL = "http://localstack:4566"
 
@@ -349,7 +349,7 @@ def build_revenue_by_category(spark, fact_df):
         .orderBy("purchase_year", "purchase_month", F.desc("total_revenue"))
     )
 
-    write_gold(revenue, "revenue_bu_category", ["purchase_year", "purchase_month"])
+    write_gold(revenue, "revenue_by_category", ["purchase_year", "purchase_month"])
     print(f"    revenue_by_category:    {revenue.count()} rows")
 
 # ─────────────────────────────────────────────────────────────

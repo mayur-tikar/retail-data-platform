@@ -15,7 +15,7 @@ services:
     ports:
       - "4566:4566"
     environment:
-      - SERVICES=s3,glue,lambda,sts
+      - SERVICES=s3,glue,lambda,iam,sts
       - DEBUG=0
       - DEFAULT_REGION=us-east-1
       - PERSISTENT=1
@@ -64,7 +64,9 @@ services:
   # ─────────────────────────────────────────────
 
   airflow-init:
-    image: apache/airflow:2.8.1
+    build:
+      context: .
+      dockerfile: docker/airflow/Dockerfile
     container_name: retail_airflow_init
     depends_on:
       - postgres
@@ -87,7 +89,9 @@ services:
   # ─────────────────────────────────────────────
 
   airflow-webserver:
-    image: apache/airflow:2.8.1
+    build: 
+      context: .
+      dockerfile: docker/airflow/Dockerfile
     container_name: retail_airflow_web
     depends_on:
       airflow-init:
@@ -105,18 +109,26 @@ services:
     volumes:
       - ./airflow/dags:/opt/airflow/dags
       - ./airflow/logs:/opt/airflow/logs
+      - ./glue_jobs:/opt/airflow/glue_jobs
+      - ./ingestion:/opt/airflow/ingestion
+      - ./data:/opt/aitflow/data
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./redshift:/opt/airflow/redshift
     ports:
       - "8080:8080"
     command: airflow webserver
     networks:
       - retail_net
+    user: root
   
   # ─────────────────────────────────────────────
   # AIRFLOW SCHEDULER
   # ─────────────────────────────────────────────
 
   airflow-scheduler:
-    image: apache/airflow:2.8.1
+    build: 
+      context: .
+      dockerfile: docker/airflow/Dockerfile
     container_name: retail_airflow_scheduler
     depends_on:
       - airflow-init
@@ -132,9 +144,15 @@ services:
     volumes:
       - ./airflow/dags:/opt/airflow/dags
       - ./airflow/logs:/opt/airflow/logs
+      - ./glue_jobs:/opt/airflow/glue_jobs
+      - ./ingestion:/opt/airflow/ingestion
+      - ./data:/opt/airflow/data
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./redshift:/opt/airflow/redshift
     command: airflow scheduler
     networks:
       - retail_net
+    user: root
   
   # ─────────────────────────────────────────────
   # GLUE / PYSPARK — AWS's official Glue image
@@ -158,6 +176,7 @@ services:
       - ./glue_jobs:/home/glue_user/workspace/glue_jobs
       - ./tests:/home/glue_user/workspace/tests
       - ./ingestion:/home/glue_user/workspace/ingestion
+      - ./data:/home/glue_user/workspace/data
     tty: true
     stdin_open: true
     networks:
