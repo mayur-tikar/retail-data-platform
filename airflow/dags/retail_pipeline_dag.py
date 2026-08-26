@@ -37,7 +37,7 @@ default_args = {
     "start_date" : datetime(2024, 1, 1),
     "retries" : 2,
     "retry_delay" : timedelta(minutes=3),
-    "retry_exponentional_ backoff" : True,
+    "retry_exponentional_backoff" : True,
     # WHY exponential backoff?
     #   Retry 1: wait 3 min. Retry 2: wait 6 min.
     #   Avoids hammering a struggling service with immediate retries.
@@ -93,7 +93,7 @@ with DAG(
             region_name = "us-east-1",
         )
 
-        for bucket in ["retail-raw", "retail-silver", "retial-gold", "retail-script"]:
+        for bucket in ["retail-raw", "retail-silver", "retail-gold", "retail-scripts"]:
             try:
                 s3.head_bucket(Bucket = bucket)
                 print(f"    Bucket exists:  {bucket}")

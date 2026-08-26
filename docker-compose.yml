@@ -23,7 +23,7 @@ services:
       - localstack_data:/var/lib/localstack
       - /var/run/docker.sock:/var/run/docker.sock
     healthcheck:
-      test: ["CMD", "curl", "f", "http://localhost:4566/_localhost/health"]
+      test: ["CMD", "curl", "f", "http://localstack:4566/_localhost/health"]
       interval: 15s
       timeout: 10s
       retries: 5
@@ -102,7 +102,7 @@ services:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://admin:admin@postgres/airflow
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
-      AWS_ENDPOINT_URL: http://localhost:4566
+      AWS_ENDPOINT_URL: http://localstack:4566
       AWS_ACCESS_KEY_ID: test
       AWS_SECRET_ACCESS_KEY: test
       AWS_DEFAULT_REGION: us-east-1
@@ -111,7 +111,7 @@ services:
       - ./airflow/logs:/opt/airflow/logs
       - ./glue_jobs:/opt/airflow/glue_jobs
       - ./ingestion:/opt/airflow/ingestion
-      - ./data:/opt/aitflow/data
+      - /opt/airflow/data
       - /var/run/docker.sock:/var/run/docker.sock
       - ./redshift:/opt/airflow/redshift
     ports:
